@@ -12,8 +12,6 @@ export class CurrentTrainingComponent implements OnInit {
   progress: number = 0;
   timer: any;
 
-  @Output() trainingExit = new EventEmitter<void>();
-
   constructor(private matDialog: MatDialog, private trainingService: TrainingService) { }
 
   ngOnInit(): void {
@@ -27,11 +25,11 @@ export class CurrentTrainingComponent implements OnInit {
     this.timer = setInterval(() => {
       this.progress = this.progress + 1;
       if (this.progress >= 100) {
+        this.trainingService.completeWorkout();
         clearInterval(this.timer);
       }
     }, step)
-    }
-    
+    } 
   }
 
   onStop() {
@@ -45,7 +43,7 @@ export class CurrentTrainingComponent implements OnInit {
     dialogRef.afterClosed().subscribe((result) => {
 
       if (result) {
-        this.trainingExit.emit();
+        this.trainingService.canceledWorkout(this.progress);
       } else {
         this.startOrResumeTimer();
       }
