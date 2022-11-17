@@ -1,0 +1,12 @@
+<section>
+    <form fxLayout="column" fxLayoutAlign="center center" fxLayoutGap="10px" [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+        <mat-form-field>
+            <input matInput type="email" placeholder="Your email" formControlName="email">
+        </mat-form-field>
+        <mat-form-field hintLabel="Should be at least 6 characters long.">
+            <input matInput type="password" placeholder="Your password" formControlName="password" #pwdInput>
+            <mat-hint align="end">{{ pwdInput.value.length }}/ 6</mat-hint>
+        </mat-form-field>
+        <button mat-raised-button type="submit" color="primary" [disabled]="!loginForm.valid">Submit</button>
+    </form>
+</section>
