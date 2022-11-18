@@ -1,49 +1,71 @@
 import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
+import { AngularFireAuth } from '@angular/fire/compat/auth';
 import { Subject } from 'rxjs';
+
 import { AuthData } from './auth-data.model';
-import { User } from './user.model';
+import { TrainingService } from '../training/training.service';
+import { UIService } from '../shared/ui.service';
 
 @Injectable({
   providedIn: 'root',
 })
 export class AuthService {
-  authChange = new Subject<boolean>();
-  private user: User | undefined = undefined;
+  authChange$ = new Subject<boolean>();
+  isAutheticated: boolean = false;
 
-  constructor(private router: Router) { 
+  constructor(private router: Router,
+    private authFire: AngularFireAuth,
+    private trainingService: TrainingService,
+    private uiService: UIService) {
 
   }
 
-  registerUser(authData: AuthData){
-    this.user = {
-        email: authData?.email,
-        userId: Math.round(Math.random() * 10000).toString()
-    }
-    this.authChange.next(true);
-    this.router.navigate(['/trainging']);
+  initAuthListener() {
+    this.authFire.authState.subscribe(user => {
+      if (user) {
+        this.isAutheticated = true;
+        this.authChange$.next(true);
+        this.router.navigate(['/training']);
+      } else {
+        this.trainingService.cancelSubscriptions();
+        this.isAutheticated = false;
+        this.authChange$.next(false);
+        this.router.navigate(['/login']);
+      }
+    })
   }
 
-  login(user: AuthData){
-    this.user = {
-        email: user?.email,
-        userId: Math.round(Math.random() * 10000).toString()
-    }
-    this.authChange.next(true);
-    this.router.navigate(['/training']);
+  registerUser(authData: AuthData) {
+    this.uiService.loadingStateSubject$.next(true);
+    this.authFire.createUserWithEmailAndPassword(authData?.email as string, authData?.password as string)
+      .then(result => {
+        console.log(result);
+        this.uiService.loadingStateSubject$.next(false);
+      }).catch(error => {
+        this.uiService.showSnackbar(error?.message, '', 3000);
+        this.uiService.loadingStateSubject$.next(false);
+      });
   }
 
-  logout(){
-    this.user = undefined;
-    this.authChange.next(false);
-    this.router.navigate(['/login']);
+  login(user: AuthData) {
+    this.uiService.loadingStateSubject$.next(true);
+    this.authFire.signInWithEmailAndPassword(user?.email as string, user?.password as string)
+      .then((result) => {
+        console.log(result);
+        this.uiService.loadingStateSubject$.next(false);
+      }).catch(error => {
+        this.uiService.showSnackbar(error?.message, '', 3000);
+        this.uiService.loadingStateSubject$.next(false);
+      });
   }
 
-  getUser(){
-    return {...this.user};
+  logout() {
+    this.authFire.signOut();
+
   }
 
-  isAuth(){
-    return this.user !== undefined ? true : false;
+  isAuth() {
+    return this.isAutheticated;
   }
 }

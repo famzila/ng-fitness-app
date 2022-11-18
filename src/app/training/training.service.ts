@@ -1,66 +1,101 @@
 import { Injectable } from '@angular/core';
-import { Subject } from 'rxjs';
+import { map, Subject, Subscription } from 'rxjs';
+import { AngularFirestore } from '@angular/fire/compat/firestore';
 
 import { Workout } from './workout.model';
+import { UIService } from '../shared/ui.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class TrainingService {
-  workoutChange = new Subject<Workout | undefined | null>();
-  private availableWorkouts: Workout[] = [
-    { id: 'crunches', name: 'Crunches', duration: 10, calories: 8 },
-    { id: 'touch-toes', name: 'Touch Toes', duration: 180, calories: 15 },
-    { id: 'side-lunges', name: 'Side lunges', duration: 120, calories: 18 },
-    { id: 'burpees', name: 'Burpees', duration: 60, calories: 18 },
-  ];
+  workoutChange$ = new Subject<Workout | undefined | null>();
+  workoutsChange$ = new Subject<Workout[] | undefined | null>();
+  finishedWorkoutsChange$ = new Subject<Workout[] | undefined | null>();
+  private dbSub: Subscription[] = [];
+  private availableWorkouts: Workout[] = [];
 
   private runningWorkout: Workout | undefined | null = undefined;
   private workouts: Workout[] = [];
 
-  constructor() { }
+  constructor(private db: AngularFirestore, private uiService: UIService) { }
 
-  getAvailableWorkouts() {
+  fetchAvailableWorkouts() {
     // create a new array with slice that can be edited without affecting the old one
-    return this.availableWorkouts.slice();
+    this.dbSub.push(this.db.collection('availableWorkouts')
+      .snapshotChanges()
+      .pipe(map(docArray => {
+        return docArray.map(doc => {
+          return {
+            id: doc.payload.doc.id,
+            name: (doc.payload.doc.data() as Workout).name,
+            calories: (doc.payload.doc.data() as Workout).calories,
+            duration: (doc.payload.doc.data() as Workout).duration,
+          };
+        })
+      })).subscribe({
+        next: (workouts) => {
+          this.availableWorkouts = workouts as Workout[];
+          this.workoutsChange$.next([...this.availableWorkouts]);
+        },
+        error: (e) => {
+          this.uiService.loadingStateSubject$.next(false);
+          this.uiService.showSnackbar('Fetching available workout failed, please try again!', '', 3000)
+          this.workoutsChange$.next(null);
+        }
+      }));
+  }
+
+
+  fetchCompletedOrCancelledWorkouts() {
+    this.dbSub.push(this.db.collection('finishedWorkouts').valueChanges().subscribe(data => {
+      this.finishedWorkoutsChange$.next(data as Workout[]);
+    }));
   }
 
   startWorkout(selectedId: string) {
     this.runningWorkout = this.availableWorkouts.find(w => w.id === selectedId);
     if (this.runningWorkout) {
-      this.workoutChange.next({ ...this.runningWorkout });
+      this.workoutChange$.next({ ...this.runningWorkout });
     } else {
-      this.workoutChange.next(undefined);
+      this.workoutChange$.next(undefined);
     }
   }
 
   completeWorkout() {
-    this.workouts.push({ 
-      ...this.runningWorkout, 
-      state: "completed", 
-      date: new Date() 
+    this.updateDatabase({
+      ...this.runningWorkout,
+      state: "completed",
+      date: new Date()
     } as Workout);
     this.runningWorkout = null;
-    this.workoutChange.next(null);
+    this.workoutChange$.next(null);
   }
 
   canceledWorkout(progress: number) {
-    this.workouts.push({ 
-      ...this.runningWorkout, 
-      state: "canceled", 
+    this.updateDatabase({
+      ...this.runningWorkout,
+      state: "canceled",
       date: new Date(),
-      calories: this.runningWorkout? this.runningWorkout.calories * progress /100 : 0, 
-      duration: this.runningWorkout? this.runningWorkout.duration * progress /100 : 0,
+      calories: this.runningWorkout ? this.runningWorkout.calories * progress / 100 : 0,
+      duration: this.runningWorkout ? this.runningWorkout.duration * progress / 100 : 0,
     } as Workout);
     this.runningWorkout = null;
-    this.workoutChange.next(null);
+    this.workoutChange$.next(null);
   }
 
   getRunningWorkout() {
     return { ...this.runningWorkout };
   }
 
-  getCanceledWorkouts(){
-    return this.workouts;
+  cancelSubscriptions() {
+    this.dbSub.forEach(sub => sub?.unsubscribe());
   }
+
+  private updateDatabase(workout: Workout) {
+    this.db.collection('finishedWorkouts').add(workout).then(data => {
+
+    });
+  }
+
 }

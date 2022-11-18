@@ -4,8 +4,8 @@
             <mat-icon>menu</mat-icon>
         </button>
     </div>
-    <div><a routerLink="/">LOGO</a></div>
-    <div fxFlex fxLayout fxLayoutAlign="end" fxHide.sm>
+    <div><a routerLink="/"><mat-icon mat-list-icon>fitness_center</mat-icon>NG FITNESS</a></div>
+    <div fxFlex fxLayout fxLayoutAlign="end" fxHide.xs>
         <ul fxLayout fxLayoutGap="10px" class="navigation-list">
             <li *ngIf="!isAuth"><a routerLink="/signup" >Signup</a></li>
             <li *ngIf="!isAuth"><a routerLink="/login" *ngIf="!isAuth">Login</a></li>
