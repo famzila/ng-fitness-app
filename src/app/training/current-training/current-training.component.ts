@@ -1,6 +1,8 @@
 import { Component, OnInit, Output, EventEmitter } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
+import { take } from 'rxjs';
 import { TrainingService } from '../training.service';
+import { Workout } from '../workout.model';
 import { StopTrainingComponent } from './stop-training.component';
 
 @Component({
@@ -18,18 +20,17 @@ export class CurrentTrainingComponent implements OnInit {
     this.startOrResumeTimer();
   }
 
-  startOrResumeTimer(){
-    const workoutDuration = this.trainingService.getRunningWorkout().duration;
-    if(workoutDuration){
-      const step = workoutDuration / 100 * 1000;
-    this.timer = setInterval(() => {
-      this.progress = this.progress + 1;
-      if (this.progress >= 100) {
-        this.trainingService.completeWorkout();
-        clearInterval(this.timer);
-      }
-    }, step)
-    } 
+  startOrResumeTimer() {
+    this.trainingService.getRunningWorkout().pipe(take(1)).subscribe(workout => {
+      const step = workout?.duration * 100 / 1000;
+      this.timer = setInterval(() => {
+        this.progress = this.progress + 1;
+        if (this.progress >= 100) {
+          this.trainingService.completeWorkout();
+          clearInterval(this.timer);
+        }
+      }, step)
+    });
   }
 
   onStop() {
@@ -43,7 +44,7 @@ export class CurrentTrainingComponent implements OnInit {
     dialogRef.afterClosed().subscribe((result) => {
 
       if (result) {
-        this.trainingService.canceledWorkout(this.progress);
+        this.trainingService.cancelledWorkout(this.progress);
       } else {
         this.startOrResumeTimer();
       }

@@ -1,30 +1,26 @@
 import { Injectable } from '@angular/core';
-import { map, Subject, Subscription } from 'rxjs';
+import { map, Subject, Subscription, take } from 'rxjs';
 import { AngularFirestore } from '@angular/fire/compat/firestore';
 import { Store } from '@ngrx/store';
 
 import { Workout } from './workout.model';
 import { UIService } from '../shared/ui.service';
 import * as UI from '../shared/ui.actions';
-import * as fromRoot from '../app.reducer';
+import * as Training from './training.actions';
+import * as fromTraining from './training.reducer';
 
 
 @Injectable({
   providedIn: 'root'
 })
 export class TrainingService {
-  workoutChange$ = new Subject<Workout | undefined | null>();
-  workoutsChange$ = new Subject<Workout[] | undefined | null>();
-  finishedWorkoutsChange$ = new Subject<Workout[] | undefined | null>();
   private dbSub: Subscription[] = [];
-  private availableWorkouts: Workout[] = [];
 
-  private runningWorkout: Workout | undefined | null = undefined;
-  private workouts: Workout[] = [];
 
-  constructor(private db: AngularFirestore, private uiService: UIService, private store: Store<{state: fromRoot.State}>) { }
+  constructor(private db: AngularFirestore, private uiService: UIService, private store: Store<fromTraining.State>) { }
 
   fetchAvailableWorkouts() {
+    this.store.dispatch(new UI.StartLoading);
     // create a new array with slice that can be edited without affecting the old one
     this.dbSub.push(this.db.collection('availableWorkouts')
       .snapshotChanges()
@@ -39,15 +35,12 @@ export class TrainingService {
         })
       })).subscribe({
         next: (workouts) => {
-          this.store.dispatch(new UI.StartLoading);
-          this.availableWorkouts = workouts as Workout[];
-          this.workoutsChange$.next([...this.availableWorkouts]);
+          this.store.dispatch(new UI.StopLoading);
+          this.store.dispatch(new Training.SetAvailableTrainings(workouts));
         },
         error: (e) => {
           this.store.dispatch(new UI.StopLoading);
-          this.uiService.loadingStateSubject$.next(false);
           this.uiService.showSnackbar('Fetching available workout failed, please try again!', '', 3000)
-          this.workoutsChange$.next(null);
         }
       }));
   }
@@ -55,43 +48,41 @@ export class TrainingService {
 
   fetchCompletedOrCancelledWorkouts() {
     this.dbSub.push(this.db.collection('finishedWorkouts').valueChanges().subscribe(data => {
-      this.finishedWorkoutsChange$.next(data as Workout[]);
+      this.store.dispatch(new Training.SetFinishedTrainings(data as Workout[]));
     }));
   }
 
   startWorkout(selectedId: string) {
-    this.runningWorkout = this.availableWorkouts.find(w => w.id === selectedId);
-    if (this.runningWorkout) {
-      this.workoutChange$.next({ ...this.runningWorkout });
-    } else {
-      this.workoutChange$.next(undefined);
-    }
+    this.store.dispatch(new Training.StartTraining(selectedId));
   }
 
   completeWorkout() {
-    this.updateDatabase({
-      ...this.runningWorkout,
-      state: "completed",
-      date: new Date()
-    } as Workout);
-    this.runningWorkout = null;
-    this.workoutChange$.next(null);
+    this.store.select(fromTraining.getActiveTraining).pipe(take(1)).subscribe(workout => {
+
+      this.updateDatabase({
+        ...workout,
+        state: "completed",
+        date: new Date()
+      } as Workout);
+      this.store.dispatch(new Training.StopTraining());
+    });
   }
 
-  canceledWorkout(progress: number) {
-    this.updateDatabase({
-      ...this.runningWorkout,
-      state: "canceled",
-      date: new Date(),
-      calories: this.runningWorkout ? this.runningWorkout.calories * progress / 100 : 0,
-      duration: this.runningWorkout ? this.runningWorkout.duration * progress / 100 : 0,
-    } as Workout);
-    this.runningWorkout = null;
-    this.workoutChange$.next(null);
+  cancelledWorkout(progress: number) {
+    this.store.select(fromTraining.getActiveTraining).pipe(take(1)).subscribe(workout => {
+      this.updateDatabase({
+        ...workout,
+        state: "cancelled",
+        date: new Date(),
+        calories: workout ? workout.calories * progress / 100 : 0,
+        duration: workout ? workout.duration * progress / 100 : 0,
+      } as Workout);
+      this.store.dispatch(new Training.StopTraining());
+    });
   }
 
   getRunningWorkout() {
-    return { ...this.runningWorkout };
+    return this.store.select(fromTraining.getActiveTraining);
   }
 
   cancelSubscriptions() {
@@ -99,9 +90,7 @@ export class TrainingService {
   }
 
   private updateDatabase(workout: Workout) {
-    this.db.collection('finishedWorkouts').add(workout).then(data => {
-
-    });
+    this.db.collection('finishedExercises').add(workout);
   }
 
 }

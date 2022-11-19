@@ -1,8 +1,10 @@
-import { Component, OnInit, ViewChild, AfterViewInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, ViewChild, AfterViewInit } from '@angular/core';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatSort } from '@angular/material/sort';
 import { MatTableDataSource } from '@angular/material/table';
-import { Subscription } from 'rxjs';
+import { Store } from '@ngrx/store';
+
+import * as fromTraining from '../training.reducer';
 import { TrainingService } from '../training.service';
 import { Workout } from '../workout.model';
 
@@ -12,21 +14,17 @@ import { Workout } from '../workout.model';
   templateUrl: './past-training.component.html',
   styleUrls: ['./past-training.component.scss']
 })
-export class PastTrainingComponent implements OnInit, AfterViewInit, OnDestroy {
+export class PastTrainingComponent implements OnInit, AfterViewInit {
   @ViewChild(MatSort) sort!: MatSort;
   @ViewChild(MatPaginator) paginator!: MatPaginator;
   displayedColumns: string[] = ['date', 'name', 'calories', 'duration', 'state'];
   dataSource = new MatTableDataSource<Workout>();
-  private workoutsChangeSub!: Subscription;
 
-  constructor(private trainingService: TrainingService) { }
+  constructor(private trainingService: TrainingService, private store: Store<fromTraining.State>) { }
 
-  ngOnDestroy(): void {
-    this.workoutsChangeSub?.unsubscribe();
-  }
 
   ngOnInit(): void {
-    this.workoutsChangeSub = this.trainingService.finishedWorkoutsChange$.subscribe(workouts => {
+    this.store.select(fromTraining.getFinishedTrainings).subscribe(workouts => {
       this.dataSource.data = workouts as Workout[];
     })
     this.trainingService.fetchCompletedOrCancelledWorkouts();

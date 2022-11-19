@@ -1,11 +1,11 @@
 
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { FormControl, FormGroup, Validators } from '@angular/forms';
-import { Subscription, Observable } from 'rxjs';
+import { Observable } from 'rxjs';
 import { Store } from '@ngrx/store';
 
+import * as fromTraining from '../training.reducer';
 import * as fromRoot from '../../app.reducer';
-import * as UI from '../../shared/ui.actions';
 import { TrainingService } from '../training.service';
 import { Workout } from '../workout.model';
 
@@ -14,31 +14,23 @@ import { Workout } from '../workout.model';
   templateUrl: './new-training.component.html',
   styleUrls: ['./new-training.component.scss']
 })
-export class NewTrainingComponent implements OnInit, OnDestroy {
-  workouts: Workout[] = [];
-  selectedWorkout: string | undefined = undefined;
+export class NewTrainingComponent implements OnInit {
+  workouts$!: Observable<Workout[]>;
+  isLoading$!: Observable<boolean>;
   newTrainingForm = new FormGroup({
     trainingId: new FormControl<string>('', [Validators.required]),
   });
-  isLoading$!: Observable<boolean>;
-  private workoutsSub!: Subscription;
 
-  constructor(private trainingService: TrainingService, private store: Store<{state: fromRoot.State}>) { }
+  constructor(private trainingService: TrainingService, private store: Store<fromTraining.State>) { }
 
-  ngOnDestroy(): void {
-    this.workoutsSub?.unsubscribe();
-  }
 
   ngOnInit(): void {
-    this.fetchWorkouts();
     this.isLoading$ = this.store.select(fromRoot.getIsLoading);
+    this.workouts$ = this.store.select(fromTraining.getAvailableTrainings);
+    this.fetchWorkouts();
   }
 
   fetchWorkouts() {
-    this.store.dispatch(new UI.StartLoading());
-    this.workoutsSub = this.trainingService.workoutsChange$.subscribe(workouts => {
-      this.workouts = workouts as Workout[];
-    });
     this.trainingService.fetchAvailableWorkouts();
   }
 

@@ -1,14 +1,16 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, CanLoadFn, Router } from "@angular/router";
-import { AuthService } from './auth.service';
+import { Store } from '@ngrx/store';
+import { take } from 'rxjs/operators';
+
+import * as fromRoot from '../app.reducer';
 
 export const authGuard: CanLoadFn | CanActivateFn = () => {
     const router = inject(Router);
-    const isLoggedIn = inject(AuthService).isAuth();
-    if (!isLoggedIn) {
-        router.navigate(['/login']);
-        return false;
-    }
+    const store = inject(Store<fromRoot.State>);
+    // Guard runs one time, no need to keep subscription so 
+    // we tell him to take 1 value and close the subscription
+    const isAuth$ = store.select(fromRoot.getIsAuthenticated).pipe(take(1));
     
-    return true;
+    return isAuth$;
 };
