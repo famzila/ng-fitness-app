@@ -1,9 +1,13 @@
 import { Injectable } from '@angular/core';
 import { map, Subject, Subscription } from 'rxjs';
 import { AngularFirestore } from '@angular/fire/compat/firestore';
+import { Store } from '@ngrx/store';
 
 import { Workout } from './workout.model';
 import { UIService } from '../shared/ui.service';
+import * as UI from '../shared/ui.actions';
+import * as fromRoot from '../app.reducer';
+
 
 @Injectable({
   providedIn: 'root'
@@ -18,7 +22,7 @@ export class TrainingService {
   private runningWorkout: Workout | undefined | null = undefined;
   private workouts: Workout[] = [];
 
-  constructor(private db: AngularFirestore, private uiService: UIService) { }
+  constructor(private db: AngularFirestore, private uiService: UIService, private store: Store<{state: fromRoot.State}>) { }
 
   fetchAvailableWorkouts() {
     // create a new array with slice that can be edited without affecting the old one
@@ -35,10 +39,12 @@ export class TrainingService {
         })
       })).subscribe({
         next: (workouts) => {
+          this.store.dispatch(new UI.StartLoading);
           this.availableWorkouts = workouts as Workout[];
           this.workoutsChange$.next([...this.availableWorkouts]);
         },
         error: (e) => {
+          this.store.dispatch(new UI.StopLoading);
           this.uiService.loadingStateSubject$.next(false);
           this.uiService.showSnackbar('Fetching available workout failed, please try again!', '', 3000)
           this.workoutsChange$.next(null);

@@ -13,6 +13,8 @@ import { TrainingModule } from './training/training.module';
 import { AuthRoutingModule } from './auth/auth-routing.module';
 import { CoreModule } from './core/core.module';
 import { MaterialModule } from './shared/material/material.module';
+import { StoreModule } from '@ngrx/store';
+import { reducers } from './app.reducer';
 
 @NgModule({
   declarations: [
@@ -28,7 +30,8 @@ import { MaterialModule } from './shared/material/material.module';
     AuthModule,
     TrainingModule,
     CoreModule,
-    MaterialModule
+    MaterialModule,
+    StoreModule.forRoot(reducers)
   ],
   providers: [],
   bootstrap: [AppComponent],

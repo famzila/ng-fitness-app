@@ -2,10 +2,13 @@ import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
 import { AngularFireAuth } from '@angular/fire/compat/auth';
 import { Subject } from 'rxjs';
+import { Store } from '@ngrx/store';
 
 import { AuthData } from './auth-data.model';
 import { TrainingService } from '../training/training.service';
 import { UIService } from '../shared/ui.service';
+import * as fromRoot from '../app.reducer';
+import * as UI from '../shared/ui.actions';
 
 @Injectable({
   providedIn: 'root',
@@ -17,7 +20,8 @@ export class AuthService {
   constructor(private router: Router,
     private authFire: AngularFireAuth,
     private trainingService: TrainingService,
-    private uiService: UIService) {
+    private uiService: UIService,
+    private store: Store<{ui: fromRoot.State}>) {
 
   }
 
@@ -37,14 +41,17 @@ export class AuthService {
   }
 
   registerUser(authData: AuthData) {
-    this.uiService.loadingStateSubject$.next(true);
+    // this.uiService.loadingStateSubject$.next(true);
+    this.store.dispatch(new UI.StartLoading());
     this.authFire.createUserWithEmailAndPassword(authData?.email as string, authData?.password as string)
       .then(result => {
-        console.log(result);
-        this.uiService.loadingStateSubject$.next(false);
+        // this.uiService.loadingStateSubject$.next(false);
+        this.store.dispatch(new UI.StopLoading());
+
       }).catch(error => {
         this.uiService.showSnackbar(error?.message, '', 3000);
-        this.uiService.loadingStateSubject$.next(false);
+        // this.uiService.loadingStateSubject$.next(false);
+        this.store.dispatch(new UI.StopLoading());
       });
   }
 

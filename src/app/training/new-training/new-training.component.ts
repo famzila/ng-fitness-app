@@ -1,12 +1,13 @@
 
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { FormControl, FormGroup, Validators } from '@angular/forms';
-import { AngularFirestore } from '@angular/fire/compat/firestore';
-import { Subscription } from 'rxjs';
+import { Subscription, Observable } from 'rxjs';
+import { Store } from '@ngrx/store';
 
+import * as fromRoot from '../../app.reducer';
+import * as UI from '../../shared/ui.actions';
 import { TrainingService } from '../training.service';
 import { Workout } from '../workout.model';
-import { UIService } from 'src/app/shared/ui.service';
 
 @Component({
   selector: 'app-new-training',
@@ -19,10 +20,10 @@ export class NewTrainingComponent implements OnInit, OnDestroy {
   newTrainingForm = new FormGroup({
     trainingId: new FormControl<string>('', [Validators.required]),
   });
-  isLoading: boolean = true;
+  isLoading$!: Observable<boolean>;
   private workoutsSub!: Subscription;
 
-  constructor(private trainingService: TrainingService) { }
+  constructor(private trainingService: TrainingService, private store: Store<{state: fromRoot.State}>) { }
 
   ngOnDestroy(): void {
     this.workoutsSub?.unsubscribe();
@@ -30,12 +31,13 @@ export class NewTrainingComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.fetchWorkouts();
+    this.isLoading$ = this.store.select(fromRoot.getIsLoading);
   }
 
   fetchWorkouts() {
+    this.store.dispatch(new UI.StartLoading());
     this.workoutsSub = this.trainingService.workoutsChange$.subscribe(workouts => {
       this.workouts = workouts as Workout[];
-      this.isLoading = false;
     });
     this.trainingService.fetchAvailableWorkouts();
   }
